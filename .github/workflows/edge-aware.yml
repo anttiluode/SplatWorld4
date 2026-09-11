@@ -1,0 +1,36 @@
+name: edge-aware-image-learning
+
+on:
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  selftest:
+    strategy:
+      matrix:
+        python: ['3.11', '3.12']
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python }}
+      - run: pip install numpy pillow
+      - run: python operator_plate.py
+      - run: python room_counterfactual.py --selftest
+      - run: python visibility_topology.py --selftest
+      - run: python edge_aware_learning.py --selftest
+
+  edge-result:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - run: pip install numpy pillow
+      - run: python edge_aware_learning.py --run --height 32 --width 64 --image-basis-dim 12 --edge-basis-dim 12 --seeds 8 --g-steps 700 --out-dir edge_aware_out
+      - uses: actions/upload-artifact@v4
+        with:
+          name: edge-aware-result
+          path: edge_aware_out/
