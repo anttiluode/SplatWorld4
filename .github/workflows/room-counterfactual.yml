@@ -1,0 +1,34 @@
+name: room-counterfactual
+
+on:
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  selftest:
+    strategy:
+      matrix:
+        python: ['3.11', '3.12']
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python }}
+      - run: pip install numpy pillow
+      - run: python operator_plate.py
+      - run: python room_counterfactual.py --selftest
+
+  room-result:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - run: pip install numpy pillow
+      - run: python room_counterfactual.py --run --height 32 --width 64 --basis-dim 12 --seeds 8 --g-steps 700 --out-dir room_out
+      - uses: actions/upload-artifact@v4
+        with:
+          name: room-counterfactual-result
+          path: room_out/
