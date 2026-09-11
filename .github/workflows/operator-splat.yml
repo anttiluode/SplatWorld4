@@ -1,0 +1,43 @@
+name: operator-splat
+
+on:
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  selftest:
+    strategy:
+      matrix:
+        python: ['3.11', '3.13']
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python }}
+      - run: pip install numpy pillow
+      - run: pip install torch --index-url https://download.pytorch.org/whl/cpu
+      - run: python operator_plate.py
+      - run: python obj_xyz_world.py --selftest
+      - run: python xyz_operator_train.py --selftest
+      - run: python operator_splat_field.py --selftest
+
+  procedural-smoke:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - run: pip install numpy pillow
+      - run: pip install torch --index-url https://download.pytorch.org/whl/cpu
+      - run: >-
+          python operator_splat_field.py --run --procedural --device cpu
+          --height 12 --width 12 --nx 3 --ny 2
+          --grid-x 3 --grid-y 2 --grid-z 3 --splat-radius 0.22
+          --sparse-views 6 --operator-dim 6 --steps 50 --seeds 1
+          --out-dir operator_splat_smoke
+      - uses: actions/upload-artifact@v4
+        with:
+          name: operator-splat-smoke
+          path: operator_splat_smoke/
