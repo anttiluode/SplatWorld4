@@ -1,0 +1,36 @@
+name: transition-consistency
+
+on:
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  selftest:
+    strategy:
+      matrix:
+        python: ['3.11', '3.12']
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python }}
+      - run: pip install numpy pillow
+      - run: python operator_plate.py
+      - run: python room_counterfactual.py --selftest
+      - run: python edge_aware_learning.py --selftest
+      - run: python transition_consistency.py --selftest
+
+  transition-result:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - run: pip install numpy pillow
+      - run: python transition_consistency.py --run --height 32 --width 64 --basis-dim 12 --seeds 8 --g-steps 700 --out-dir transition_out
+      - uses: actions/upload-artifact@v4
+        with:
+          name: transition-consistency-result
+          path: transition_out/
