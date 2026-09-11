@@ -10,59 +10,79 @@ The room/counterfactual line established a useful boundary: static edge-aware vi
 
 The physical-XYZ gate then established a narrower positive result: correct camera depth helps on wholly unseen depth planes, but a direct XYZ predictor and even the fixed operator remain stronger than learned material on that benchmark. That means camera-addressed `pose -> image` prediction still leaves too easy a shortcut.
 
-## Current experiment: make the operator a 3-D splat field
+## Gate 6: world-space operator splat field
 
 Gate 6 moves the address from **camera space to world space**.
-
-Old formulation:
-
-```text
-camera (x,y,z) -> M_g(camera) -> image coefficients
-```
-
-New formulation:
 
 ```text
 world q=(X,Y,Z) -> M_g(q) -> RGB + opacity at a 3-D splat anchor
                               -> perspective alpha renderer -> image
 ```
 
-The camera no longer enters the operator. It only renders a world-fixed field.
-
-This is the first SplatWorld4 gate that behaves like a genuine 3-D splat representation rather than a camera-conditioned image regressor. One shared material vector `g` generates the properties of many 3-D anchors; sparse camera views train the field; entire intermediate camera-depth planes remain test-only.
+The camera no longer enters the operator. It only renders a world-fixed field. One shared material vector `g` generates the properties of many 3-D anchors; sparse camera views train the field; entire intermediate camera-depth planes remain test-only.
 
 Controls use the same anchors and renderer:
 
-- `operator`: learned material `g` + a linear splat-property head
-- `fixed_operator`: identical operator coordinates but frozen material
-- `mlp`: ordinary world-coordinate MLP `q -> RGB, opacity`
+- `operator`: learned material `g` + linear splat-property head
+- `fixed_operator`: same operator coordinates but frozen material
+- `mlp`: ordinary world-coordinate MLP
 - `free`: independent RGB/opacity parameters for every anchor
 
-Read [`OPERATOR_SPLAT_PLAN.md`](OPERATOR_SPLAT_PLAN.md) for the claim boundary.
+Read [`OPERATOR_SPLAT_PLAN.md`](OPERATOR_SPLAT_PLAN.md) for the design and [`OPERATOR_SPLAT_RESULTS.md`](OPERATOR_SPLAT_RESULTS.md) for the first full GPU result.
 
-### Procedural smoke / first local run
+### First full result
 
-```bash
-python3.13 operator_splat_field.py --selftest
-python3.13 operator_splat_field.py --run --procedural --device cuda --steps 1800 --seeds 3 --out-dir operator_splat_out
-```
+Held-out relative RMSE:
 
-### OBJ run
+| scene | learned operator | fixed operator | coordinate MLP | free splats |
+|---|---:|---:|---:|---:|
+| procedural cubes | **0.420867** | 0.484071 | 0.341714 | 0.329520 |
+| OBJ world | **0.450841** | 0.469289 | 0.375716 | 0.362376 |
 
-```bash
-python3.13 -m pip install -r requirements-xyz.txt
-python3.13 obj_xyz_world.py --download spot rounded_cube avocado
-python3.13 operator_splat_field.py --run --models spot rounded_cube avocado --device cuda --steps 2200 --seeds 3 --out-dir operator_splat_obj_out
-```
+The learned material beats its fixed counterpart in all 3/3 paired seeds on both scenes. The fixed-to-learned error reduction is **13.06%** on the procedural world and **3.93%** on the OBJ world.
 
-The key outputs are:
+The operator is still less accurate than the large MLP and free splats, but it uses only **64 trainable parameters**, versus 796 and 576 respectively.
+
+## Current experiment: Gate 6b capacity attack
+
+The fixed operator has 44 trainable parameters; the learned operator has 64. The extra 20 are exactly the learned material degrees of freedom. So Gate 6 by itself does not prove that material is a particularly useful place to spend those parameters.
+
+`operator_splat_capacity.py` adds the missing controls:
 
 ```text
-operator_splat_metrics.json
-operator_splat_comparison.png
-operator_splat_field_slices.png
+operator64    learned material + linear head                  64 params
+fixed_deep64  frozen material + nonlinear 10 -> 4 -> 4 head  64 params
+tiny_mlp56    coordinate MLP 3 -> 4 -> 4 -> 4                56 params
+tiny_mlp74    coordinate MLP 3 -> 5 -> 5 -> 4                74 params
 ```
 
-The decisive first question is no longer merely whether `z` matters. It is whether a **single compact operator substrate can instantiate a view-independent 3-D field** that survives sparse-view training and renders coherent views at untouched camera depths.
+The decisive comparison is:
 
-If that works, the next step is the one the earlier sparse-world result points toward: observe a local change, modify only the shared material, and ask whether unseen views of the changed 3-D world update coherently without retraining every splat.
+```text
+operator64 < fixed_deep64
+```
+
+on held-out views. If it survives on both procedural and OBJ scenes, the evidence becomes much stronger that **changing the shared substrate is a useful inductive bias per parameter**, rather than merely extra capacity.
+
+### Run Gate 6b
+
+Procedural:
+
+```bash
+python3.13 operator_splat_capacity.py --run --procedural \
+  --device cuda --steps 1800 --seeds 3 \
+  --out-dir operator_splat_capacity_out
+```
+
+OBJ:
+
+```bash
+python3.13 operator_splat_capacity.py --run \
+  --models spot rounded_cube avocado \
+  --device cuda --steps 2200 --seeds 3 \
+  --out-dir operator_splat_capacity_obj_out
+```
+
+The output is `operator_splat_capacity_metrics.json`.
+
+If the material survives this control, the next gate is the more ambitious one suggested by the earlier sparse-world result: **observe a local world change, modify only the shared material, and ask whether unseen viewpoints update coherently without retraining every splat**.
