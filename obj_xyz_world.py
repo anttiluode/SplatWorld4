@@ -34,17 +34,17 @@ from PIL import Image
 
 ASSETS = {
     "spot": {
-        "url": "https://raw.githubusercontent.com/adobe/lagrange-test-data/main/core/spot/spot_triangulated.obj",
+        "url": "https://raw.githubusercontent.com/adobe/lagrange-test-data/main/open/core/spot/spot_triangulated.obj",
         "license": "CC0-1.0",
         "source": "https://github.com/adobe/lagrange-test-data",
     },
     "rounded_cube": {
-        "url": "https://raw.githubusercontent.com/adobe/lagrange-test-data/main/core/rounded_cube.obj",
+        "url": "https://raw.githubusercontent.com/adobe/lagrange-test-data/main/open/core/rounded_cube.obj",
         "license": "CC0-1.0",
         "source": "https://github.com/adobe/lagrange-test-data",
     },
     "avocado": {
-        "url": "https://raw.githubusercontent.com/adobe/lagrange-test-data/main/io/avocado/avocado.obj",
+        "url": "https://raw.githubusercontent.com/adobe/lagrange-test-data/main/open/io/avocado/avocado.obj",
         "license": "CC0-1.0",
         "source": "https://github.com/adobe/lagrange-test-data",
     },
