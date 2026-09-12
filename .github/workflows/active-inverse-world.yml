@@ -40,3 +40,24 @@ jobs:
         with:
           name: active-inverse-smoke
           path: active_inverse_smoke/
+
+  active-vs-random-confirmation:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - run: pip install numpy pillow
+      - run: pip install torch --index-url https://download.pytorch.org/whl/cpu
+      - run: >-
+          python active_inverse_world.py --run --device cpu
+          --seeds 12 --random-repeats 16
+          --operator-dim 5 --camera-views 7 --image-size 8
+          --features-per-view 3 --hidden-magnitude 0.22
+          --max-views 3 --inner-steps 2
+          --out-dir active_inverse_confirmation
+      - uses: actions/upload-artifact@v4
+        with:
+          name: active-inverse-confirmation
+          path: active_inverse_confirmation/
