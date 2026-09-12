@@ -1,0 +1,142 @@
+# Gate 7A — Active Inverse World
+
+Gate 7A adds the missing inverse loop to the Gate-6 world-space operator splat field:
+
+```text
+hidden shared-material change
+        ↓
+bounded camera observation
+        ↓
+measured finite-difference response J = d(observation)/d(material)
+        ↓
+damped local inverse correction
+        ↓
+current null / weak material directions
+        ↓
+choose the next camera that exposes those directions
+```
+
+The hidden target material is never supplied to the solver. Target image features are read only for cameras already acquired. Candidate next cameras are scored from the **predicted Jacobian only**. A regression test additionally replaces every unseen target feature with absurd values and verifies that neither the inverse step nor the chosen next camera changes.
+
+This is deliberately a positive-control inverse problem: the hidden change is generated inside SplatWorld4's existing shared-material family. It tests whether the inverse and active-sensing mechanism works before attacking off-manifold object motion.
+
+## Why the material coordinates are 9-D
+
+The Gate-7 confirmation uses an operator plate with 10 material edges. The common additive shift of all softmax logits changes no material, so Gate 7 removes that gauge and works in a 9-dimensional orthonormal tangent basis:
+
+```math
+\theta = \theta_0 + Bz, \qquad B^T B=I, \qquad \mathbf 1^T B=0.
+```
+
+Each camera image is compressed to only three fixed deterministic linear features. One camera therefore cannot identify all nine material coordinates by construction.
+
+## Frozen confirmation
+
+The first 3-seed smoke run passed. Without changing any mechanism parameter, the confirmation increased only statistical coverage to:
+
+```text
+hidden changes       12 seeds
+random controls      16 per hidden change
+camera candidates     7
+features / camera      3
+material coordinates   9
+views purchased         3
+inverse steps / view    2
+finite-diff epsilon   0.015
+damping               1e-6
+trust radius           0.18
+```
+
+The comparison is active next-view selection versus a matched random unobserved view. Both start from the same center camera and use the same inverse solver.
+
+The hidden perturbations are intentionally **local**, because the solver is a local Jacobian method. Baseline-to-target full-orbit relative RMSE ranges from `1.036e-3` to `3.587e-3` across the 12 seeds, with mean `2.236e-3`. The percentage improvements below therefore characterize this small-change regime; they are not evidence that the same linearization will survive arbitrarily large scene changes.
+
+| metric | active | random-view median | relative change |
+|---|---:|---:|---:|
+| mean orbit-error AUC | **6.8936e-4** | 8.5519e-4 | **-19.39%** |
+| mean final full-orbit rel-RMSE | **2.7085e-4** | 4.4184e-4 | **-38.70%** |
+| mean final material-coordinate error | **0.09963** | 0.12252 | **-18.69%** |
+
+Paired outcomes across the 12 hidden changes:
+
+```text
+active orbit-AUC better than random median       11 / 12
+active final orbit error better                  12 / 12
+active final material error better               12 / 12
+```
+
+The one AUC loss is retained: seed 4 is essentially tied but slightly worse for active over the three-view curve (`6.58812e-4` versus `6.58290e-4`). Its final orbit reconstruction is still better (`2.98994e-4` versus `4.07821e-4`).
+
+## The rank result
+
+Every one of the 12 confirmation seeds follows exactly:
+
+```text
+1 acquired view   rank 3 / 9
+2 acquired views  rank 6 / 9
+3 acquired views  rank 9 / 9
+```
+
+The active trajectories are not random-looking. All start from center view 3. Eleven of twelve then acquire the two sides of the camera line in one order or the other:
+
+```text
+3 -> 0 -> 6    7 seeds
+3 -> 6 -> 0    4 seeds
+3 -> 6 -> 1    1 seed
+```
+
+So the camera-selection rule is doing the intended job in this construction: after seeing the center, it moves toward a view whose predicted Jacobian has large response in the currently invisible material subspace.
+
+## What is actually supported
+
+Gate 7A supports this narrow statement:
+
+> **When a small hidden visual change is known to lie in SplatWorld4's shared-material family, finite-difference local inversion can recover that change from bounded camera observations, and choosing new cameras by the current Jacobian null/weak space recovers the shared world more efficiently than matched random camera acquisition in this confirmation battery.**
+
+The result is stronger than merely fitting purchased views: evaluation is on the full seven-view orbit, including views not supplied to the inverse solver.
+
+## What is not supported
+
+This gate does **not** establish:
+
+- arbitrary 3-D reconstruction;
+- recovery of a moved mesh, appearing/disappearing object, or other off-manifold scene edit;
+- large-change robustness outside the local-linear regime tested here;
+- superiority to NeRF, 3D Gaussian Splatting, bundle adjustment, active vision, or standard inverse-rendering systems;
+- robustness to camera-calibration error, noise, or a wrong forward model;
+- that the shared operator representation is more accurate than Gate 6's larger MLP/free-splat controls.
+
+The hidden change was generated by the same material family used by the solver. That is why this is **Gate 7A**, not the end of the inverse-world question.
+
+## Next attacker
+
+The meaningful Gate 7B is model mismatch. Change the rendered world in a way that the material family did not generate—for example move a subset of splat anchors, alter one local object's properties, or add/remove a localized component—while allowing the inverse solver to edit only shared material.
+
+Then ask two separate questions:
+
+1. can active sensing still reduce unseen-view error better than random sensing?
+2. can the singular/residual diagnostics correctly say **the current model cannot explain this world change** instead of hallucinating a confident material solution?
+
+That is the test that turns the positive-control mechanism into a candidate inverse instrument.
+
+## Reproduce
+
+Focused tests and selftest:
+
+```bash
+python -m unittest discover -s tests -p 'test_active_inverse_*.py' -v
+python active_inverse_world.py --selftest
+```
+
+Confirmation:
+
+```bash
+python active_inverse_world.py --run --device cpu \
+  --seeds 12 --random-repeats 16 \
+  --operator-dim 5 --camera-views 7 --image-size 8 \
+  --features-per-view 3 --hidden-magnitude 0.22 \
+  --max-views 3 --inner-steps 2 \
+  --out-dir active_inverse_confirmation
+```
+
+The CI workflow runs the same command and uploads the full `active_inverse_metrics.json` artifact. A compact committed receipt is in `results/gate7_active_inverse_summary.json`.
