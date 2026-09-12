@@ -101,7 +101,7 @@ null / weak material directions
 choose the next camera that exposes them
 ```
 
-The solver never receives the hidden material change. It receives target features only for cameras it has already acquired. Candidate next cameras are chosen from the current **predicted** Jacobian, not by peeking at unseen target images.
+The solver never receives the hidden material change. It receives target features only for cameras it has already acquired. Candidate next cameras are chosen from the current **predicted** Jacobian, not by peeking at unseen target images. A regression test replaces every unseen target feature with absurd values and verifies that the update and next-camera choice are unchanged.
 
 The frozen confirmation uses nine gauge-free material coordinates, only three sensor features per camera, seven candidate cameras and at most three acquired views. Across **12 hidden material changes**, with **16 matched random-view controls per change**:
 
@@ -112,6 +112,8 @@ The frozen confirmation uses nine gauge-free material coordinates, only three se
 | final material-coordinate error | **0.09963** | 0.12252 |
 
 That is a **19.39%** lower orbit-error curve, **38.70%** lower final full-orbit error and **18.69%** lower final material error for active sensing.
+
+The hidden changes themselves are intentionally small/local: baseline-to-target full-orbit relative RMSE ranges from `1.036e-3` to `3.587e-3` (mean `2.236e-3`). The percentages above therefore describe this local-linear regime, not arbitrary large world edits.
 
 Paired outcomes:
 
@@ -135,7 +137,7 @@ Read [`GATE7_ACTIVE_INVERSE_RESULTS.md`](GATE7_ACTIVE_INVERSE_RESULTS.md) for th
 
 ### Claim boundary
 
-This is a positive control. The hidden change was generated **inside the same shared-material family used by the inverse solver**. Gate 7A therefore establishes the active inverse mechanism, not arbitrary 3-D scene understanding.
+This is a positive control. The hidden change was generated **inside the same shared-material family used by the inverse solver**. Gate 7A therefore establishes the active inverse mechanism for small in-family edits, not arbitrary 3-D scene understanding or large-change robustness.
 
 The next meaningful attacker is Gate 7B: change the rendered world outside the material family—move local geometry, add/remove an object or alter a localized component—and test both whether active sensing still helps and whether the residual/singular diagnostics can correctly report **model mismatch** rather than inventing a confident material explanation.
 

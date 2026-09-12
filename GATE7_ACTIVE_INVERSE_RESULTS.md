@@ -16,7 +16,7 @@ current null / weak material directions
 choose the next camera that exposes those directions
 ```
 
-The hidden target material is never supplied to the solver. Target image features are read only for cameras already acquired. Candidate next cameras are scored from the **predicted Jacobian only**.
+The hidden target material is never supplied to the solver. Target image features are read only for cameras already acquired. Candidate next cameras are scored from the **predicted Jacobian only**. A regression test additionally replaces every unseen target feature with absurd values and verifies that neither the inverse step nor the chosen next camera changes.
 
 This is deliberately a positive-control inverse problem: the hidden change is generated inside SplatWorld4's existing shared-material family. It tests whether the inverse and active-sensing mechanism works before attacking off-manifold object motion.
 
@@ -48,6 +48,8 @@ trust radius           0.18
 ```
 
 The comparison is active next-view selection versus a matched random unobserved view. Both start from the same center camera and use the same inverse solver.
+
+The hidden perturbations are intentionally **local**, because the solver is a local Jacobian method. Baseline-to-target full-orbit relative RMSE ranges from `1.036e-3` to `3.587e-3` across the 12 seeds, with mean `2.236e-3`. The percentage improvements below therefore characterize this small-change regime; they are not evidence that the same linearization will survive arbitrarily large scene changes.
 
 | metric | active | random-view median | relative change |
 |---|---:|---:|---:|
@@ -89,7 +91,7 @@ So the camera-selection rule is doing the intended job in this construction: aft
 
 Gate 7A supports this narrow statement:
 
-> **When a hidden visual change is known to lie in SplatWorld4's shared-material family, finite-difference local inversion can recover that change from bounded camera observations, and choosing new cameras by the current Jacobian null/weak space recovers the shared world more efficiently than matched random camera acquisition in this confirmation battery.**
+> **When a small hidden visual change is known to lie in SplatWorld4's shared-material family, finite-difference local inversion can recover that change from bounded camera observations, and choosing new cameras by the current Jacobian null/weak space recovers the shared world more efficiently than matched random camera acquisition in this confirmation battery.**
 
 The result is stronger than merely fitting purchased views: evaluation is on the full seven-view orbit, including views not supplied to the inverse solver.
 
@@ -99,6 +101,7 @@ This gate does **not** establish:
 
 - arbitrary 3-D reconstruction;
 - recovery of a moved mesh, appearing/disappearing object, or other off-manifold scene edit;
+- large-change robustness outside the local-linear regime tested here;
 - superiority to NeRF, 3D Gaussian Splatting, bundle adjustment, active vision, or standard inverse-rendering systems;
 - robustness to camera-calibration error, noise, or a wrong forward model;
 - that the shared operator representation is more accurate than Gate 6's larger MLP/free-splat controls.
