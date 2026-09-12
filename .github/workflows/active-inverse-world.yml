@@ -5,7 +5,7 @@ on:
   workflow_dispatch:
 
 jobs:
-  core-tests:
+  tests:
     strategy:
       matrix:
         python: ['3.11', '3.13']
@@ -15,5 +15,6 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: ${{ matrix.python }}
-      - run: pip install numpy
-      - run: python -m unittest discover -s tests -p 'test_active_inverse_core.py' -v
+      - run: pip install numpy pillow
+      - run: pip install torch --index-url https://download.pytorch.org/whl/cpu
+      - run: python -m unittest discover -s tests -p 'test_active_inverse_*.py' -v
